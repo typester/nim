@@ -1,8 +1,34 @@
 package Nim;
-use strict;
-use warnings;
+use utf8;
+use Mouse;
 
 our $VERSION = '0.01';
+
+use Carp;
+use Cwd qw/getcwd/;
+use Path::Class qw/file dir/;
+
+use Nim::Config;
+
+has conf => (
+    is  => 'rw',
+    isa => 'Nim::Config',
+);
+
+has hooks => (
+    is      => 'rw',
+    isa     => 'HashRef',
+    default => sub { {} },
+);
+
+has entries => (
+    is      => 'rw',
+    isa     => 'ArrayRef[Nim::Entry]',
+    lazy    => 1,
+    default => sub { [] },
+);
+
+no Mouse;
 
 =head1 NAME
 
@@ -20,6 +46,134 @@ It looks like the author of the extension was negligent enough
 to leave the stub unedited.
 
 Blah blah blah.
+
+=head1 METHODS
+
+=head2 new
+
+=head2 run
+
+=cut
+
+sub run {
+    my $self = shift;
+
+    $self->load_config;
+    $self->load_plugins;
+
+    $self->run_hooks;
+}
+
+=head2 run_hooks
+
+=cut
+
+sub run_hooks {
+    my $self = shift;
+
+    $self->run_hook('initialize');
+    $self->run_hook('find_entries');
+
+    for my $entry (@{ $self->entries }) {
+        $self->run_hook( filter       => $entry );
+        $self->run_hook( interpolate  => $entry );
+        $self->run_hook( render_entry => $entry );
+    }
+
+    $self->run_hook('render_pages');
+    $self->run_hook('finalize');
+}
+
+=head2 run_hook
+
+=cut
+
+sub run_hook {
+    my ($self, $name, @args) = @_;
+
+    warn 'run hook: ' . $name;
+
+    for my $hook (@{ $self->hooks->{$name} }) {
+        $hook->{callback}->( $hook->{plugin}, $self, @args );
+    }
+}
+
+=head2 run_hook_once
+
+=cut
+
+sub run_hook_once {
+    my ($self, $name, @args) = @_;
+
+    for my $hook (@{ $self->hooks->{$name} }) {
+        my $res = $hook->{callback}->( $hook->{plugin}, $self, @args );
+        return $res if $res;
+    }
+
+    return;
+}
+
+=head2 load_config
+
+=cut
+
+sub load_config {
+    my $self = shift;
+
+    my $config_file = dir(getcwd)->file('.nim');
+    croak 'config file ".nim" is not found on this directory' unless -f $config_file;
+
+    $self->conf( Nim::Config->load($config_file) );
+}
+
+=head2 load_plugins
+
+=cut
+
+sub load_plugins {
+    my $self = shift;
+
+    for my $conf (@{ $self->conf->plugins }) {
+        $self->load_plugin( $conf->{module}, $conf->{config} );
+    }
+
+    # load default plugins
+    $self->load_plugin('EntryLoader') unless $self->hooks->{find_entries};
+    $self->load_plugin('TemplateLoader::Single') unless $self->hooks->{load_template};
+    $self->load_plugin('Template::TT') unless $self->hooks->{interpolate};
+    $self->load_plugin('Render::Entry') unless $self->hooks->{render_entry};
+}
+
+=head2 load_plugin
+
+=cut
+
+sub load_plugin {
+    my ($self, $module, $conf) = @_;
+
+    unless ($module =~ s/^\+//) {
+        $module = "Nim::Plugin::${module}";
+    }
+
+    Mouse::load_class($module) unless Mouse::is_class_loaded($module);
+    my $plugin = $module->new($conf);
+    $plugin->register($self);
+}
+
+=head2 register_hook
+
+=cut
+
+sub register_hook {
+    my ($self, $plugin, @hooks) = @_;
+
+    while (my ($hook, $callback) = splice @hooks, 0, 2) {
+        push @{ $self->hooks->{ $hook } }, {
+            plugin   => $plugin,
+            callback => $callback,
+        };
+    }
+}
 
 =head1 AUTHOR
 
