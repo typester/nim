@@ -28,9 +28,7 @@ sub register {
 sub interpolate {
     my ($self, $context, $entry) = @_;
 
-    warn 'inter';
     my $template = $context->run_hook_once( load_template => $entry );
-warn $template;
     $self->tt->process(\$template, { nim => $context, entry => $entry }, \my $rendered);
 
     $entry->rendered_body( $rendered );
