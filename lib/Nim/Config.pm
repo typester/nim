@@ -5,6 +5,12 @@ use Mouse;
 use YAML::Syck;
 use Nim::Types::Path::Class;
 
+has 'log_level' => (
+    is      => 'rw',
+    isa     => 'Str',
+    default => sub { 'error' },
+);
+
 has [qw/output_dir data_dir/] => (
     is       => 'rw',
     isa      => 'Path::Class::Dir',
@@ -17,6 +23,7 @@ has templates_dir => (
     isa     => 'Path::Class::Dir',
     lazy    => 1,
     default => sub { $_[0]->data_dir },
+    coerce  => 1,
 );
 
 has default_flavour => (

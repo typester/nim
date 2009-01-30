@@ -9,6 +9,7 @@ use Cwd qw/getcwd/;
 use Path::Class qw/file dir/;
 
 use Nim::Config;
+use Nim::Log;
 
 has conf => (
     is  => 'rw',
@@ -26,6 +27,16 @@ has entries => (
     isa     => 'ArrayRef[Nim::Entry]',
     lazy    => 1,
     default => sub { [] },
+);
+
+has logger => (
+    is      => 'rw',
+    isa     => 'Nim::Log',
+    lazy    => 1,
+    default => sub {
+        my $self = shift;
+        Nim::Log->new( log_level => $self->conf->log_level );
+    },
 );
 
 no Mouse;
@@ -66,6 +77,8 @@ sub run {
 
 =head2 run_hooks
 
+
+
 =cut
 
 sub run_hooks {
@@ -91,9 +104,15 @@ sub run_hooks {
 sub run_hook {
     my ($self, $name, @args) = @_;
 
-    warn 'run hook: ' . $name;
+    $self->logger->debug('run_hook: %s', $name);
 
-    for my $hook (@{ $self->hooks->{$name} }) {
+    my @hooks = (
+        @{ $self->hooks->{ 'before_' . $name } || [] },
+        @{ $self->hooks->{$name}               || [] },
+        @{ $self->hooks->{ 'after_' . $name }  || [] }
+    );
+
+    for my $hook (@hooks) {
         $hook->{callback}->( $hook->{plugin}, $self, @args );
     }
 }
@@ -124,6 +143,10 @@ sub load_config {
     croak 'config file ".nim" is not found on this directory' unless -f $config_file;
 
     $self->conf( Nim::Config->load($config_file) );
+
+    $self->logger->debug('data_dir: %s', $self->conf->data_dir->absolute);
+    $self->logger->debug('output_dir: %s', $self->conf->output_dir->absolute);
+    $self->logger->debug('templates_dir: %s', $self->conf->templates_dir->absolute);
 }
 
 =head2 load_plugins

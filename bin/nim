@@ -4,9 +4,19 @@ use strict;
 use warnings;
 use FindBin::libs;
 
+use Pod::Usage;
+use Getopt::Long;
+
 use Nim;
 
-Nim->new->run;
+GetOptions(
+    \my %options,
+    qw/help flavour=s debug/
+);
+pod2usage(0) if $options{help};
+
+my $nim = Nim->new;
+$nim->run;
 
 __END__
 

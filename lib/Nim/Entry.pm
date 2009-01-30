@@ -5,11 +5,34 @@ use Mouse;
 use Encode;
 use Nim::Types::Path::Class;
 
+has context => (
+    is       => 'rw',
+    isa      => 'Nim',
+    weak_ref => 1,
+);
+
 has file => (
     is       => 'rw',
     isa      => 'Path::Class::File',
     required => 1,
     coerce   => 1,
+);
+
+has path => (
+    is      => 'rw',
+    isa     => 'Str',
+    lazy    => 1,
+    default => sub {
+        my $self = shift;
+        my $conf = $self->context->conf;
+
+        my $d = $conf->data_dir->stringify;
+        my $p = $self->file->parent;
+        $p =~ s/^$d//;
+        $p ||= '/';
+
+        $p;
+    },
 );
 
 has fn => (

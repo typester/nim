@@ -19,7 +19,7 @@ sub load {
     my ($self, $context, $entry) = @_;
 
     my $template;
-    my $data_dir = $context->conf->templates_dir;
+    my $data_dir = $context->conf->data_dir;
     my $path     = $entry->file->parent;
     my $fn       = 'template.' . $context->conf->default_flavour;
 

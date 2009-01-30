@@ -27,10 +27,9 @@ sub find {
         return unless -f $f;
         return unless $f->basename =~ /\.$data_ext$/;
 
-        my $entry = Nim::Entry->new( file => $f );
+        my $entry = Nim::Entry->new( file => $f, context => $context );
         push @{ $context->entries }, $entry;
     });
 }
 
 1;
-
