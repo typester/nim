@@ -26,7 +26,9 @@ sub load {
     while ($data_dir->contains($path)) {
         my $t = $path->file($fn);
         if (-f $t) {
-            $template = $t->slurp;
+            open my $fh, "<:utf8", $t or die $!;
+            $template = do { local $/; <$fh>};
+            close $fh;
             last;
         }
         $path = $path->parent;
