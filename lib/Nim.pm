@@ -179,7 +179,7 @@ sub load_plugin {
     }
 
     Mouse::load_class($module) unless Mouse::is_class_loaded($module);
-    my $plugin = $module->new($conf);
+    my $plugin = $module->new($conf || ());
     $plugin->register($self);
 }
 
