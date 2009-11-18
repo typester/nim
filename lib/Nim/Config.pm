@@ -1,51 +1,43 @@
 package Nim::Config;
-use utf8;
-use Mouse;
+use Any::Moose;
 
+use Nim::Types;
 use YAML::Syck;
-use Nim::Types::Path::Class;
 
-has 'log_level' => (
+has log_level => (
     is      => 'rw',
     isa     => 'Str',
-    default => sub { 'error' },
+    default => 'info',
 );
 
-has [qw/output_dir data_dir/] => (
+has time_zone => (
+    is      => 'rw',
+    isa     => 'Str',
+    default => 'local',
+);
+
+has [qw/data_dir site_dir/] => (
     is       => 'rw',
-    isa      => 'Path::Class::Dir',
+    isa      => 'Nim::Types::Dir',
     required => 1,
     coerce   => 1,
 );
 
 has templates_dir => (
     is      => 'rw',
-    isa     => 'Path::Class::Dir',
+    isa     => 'Nim::Types::Dir',
     lazy    => 1,
-    default => sub { $_[0]->data_dir },
     coerce  => 1,
-);
-
-has default_flavour => (
-    is      => 'rw',
-    isa     => 'Str',
-    default => sub { 'html' },
-);
-
-has data_extension => (
-    is      => 'rw',
-    isa     => 'Str',
-    default => sub { 'txt' },
+    default => sub { shift->data_dir },
 );
 
 has plugins => (
     is      => 'rw',
     isa     => 'ArrayRef',
-    lazy    => 1,
     default => sub { [] },
 );
 
-no Mouse;
+no Any::Moose;
 
 sub load {
     my ($class, $file) = @_;
@@ -54,6 +46,5 @@ sub load {
     $class->new($conf);
 }
 
-1;
-
+__PACKAGE__->meta->make_immutable;
 

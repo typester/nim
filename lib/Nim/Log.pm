@@ -1,14 +1,13 @@
 package Nim::Log;
-use utf8;
-use Mouse;
+use Any::Moose;
 
 has log_level => (
     is      => 'rw',
     isa     => 'Str',
-    default => sub { 'error' },
+    default => 'info',
 );
 
-no Mouse;
+no Any::Moose;
 
 our %log_levels = (
     fatal => 0,
@@ -19,9 +18,9 @@ our %log_levels = (
 );
 
 sub log {
-    my ($self, $type, $format, @args) = @_;
+    my ($self, $caller, $type, $format, @args) = @_;
     return if $log_levels{ $self->log_level } < $log_levels{ $type };
-    print sprintf("[${type}] ${format}\n", @args);
+    print sprintf("[${type}] $caller: ${format}\n", @args);
 }
 
 {
@@ -29,11 +28,12 @@ sub log {
     my $pkg = __PACKAGE__;
     for my $type (qw/fatal error warn info debug/) {
         *{"$pkg\::$type"} = sub {
-            my $self = shift;
-            $self->log( $type => @_ );
+            my $self   = shift;
+            my $caller = caller;
+
+            $self->log( $caller, $type => @_ );
         };
     }
 }
 
-1;
-
+__PACKAGE__->meta->make_immutable;

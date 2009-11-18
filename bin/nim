@@ -9,37 +9,65 @@ use Getopt::Long;
 
 use Nim;
 
+use Carp;
+
+local $SIG{__DIE__} = sub { Carp::confess(@_) };
+
 GetOptions(
     \my %options,
-    qw/help flavour=s debug/
+    qw/help server port=i host=s/
 );
 pod2usage(0) if $options{help};
 
 my $nim = Nim->new;
 $nim->run;
 
-__END__
+# delay the build process for reloader
+sub build(&;$) {
+    my $block = shift;
+    my $app   = shift || sub { };
+    return sub { $block->($app->()) };
+}
 
-=head1 NAME
+if ($options{server}) {
+    $nim->log->info('Starting build-in server');
 
-nim - minimal command-line based contents generator
+    my $handler = sub {
+        sub {
+            my $env  = shift;
+            my @path = grep { $_ } split '/', $env->{PATH_INFO};
+            my $fn   = pop @path || 'index.html';
 
-=head1 SYNOPSIS
+            my $dir = $nim->conf->site_dir;
+            $dir = $dir->subdir(@path) if @path;
 
-    nim [options]
+            my $file = $dir->file($fn);
+            $file = $dir->subdir($file->basename)->file('index.html') if -d $file;
 
-=head1 AUTHOR
+            if (-f $file) {
+                require Plack::App::File;
+                my $type = Plack::App::File->mime_type_for($file);
 
-Daisuke Murase <typester@cpan.org>
+                my $fh = $file->openr or die $!;
+                return [
+                    200,
+                    [ 'Content-Type' => $type, 'Content-Length' => -s $fh ],
+                    $fh
+                ];
+            }
+            else {
+                return [ 404, [ "Content-Type" => "text/plain" ], [ "Not Found" ] ];
+            }
+        };
+    };
+    require Plack::Middleware::AccessLog;
+    $handler = build {
+        Plack::Middleware::AccessLog->wrap( $_[0], logger => sub { print STDERR @_ } );
+    } $handler;
 
-=head1 COPYRIGHT & LICENSE
+    require Plack::Loader;
+    $options{port} ||= 4423;
+    $options{host} ||= '0.0.0.0';
 
-Copyright (c) 2009 KAYAC Inc. All rights reserved.
-
-This program is free software; you can redistribute
-it and/or modify it under the same terms as Perl itself.
-
-The full text of the license can be found in the
-LICENSE file included with this module.
-
-=cut
+    Plack::Loader->auto(%options)->run($handler->());
+}

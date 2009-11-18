@@ -1,6 +1,5 @@
 package Nim;
-use utf8;
-use Mouse;
+use Any::Moose;
 
 our $VERSION = '0.01';
 
@@ -9,6 +8,7 @@ use Cwd qw/getcwd/;
 use Path::Class qw/file dir/;
 
 use Nim::Config;
+use Nim::Entry;
 use Nim::Log;
 
 has conf => (
@@ -25,21 +25,148 @@ has hooks => (
 has entries => (
     is      => 'rw',
     isa     => 'ArrayRef[Nim::Entry]',
-    lazy    => 1,
     default => sub { [] },
 );
 
-has logger => (
+has pages => (
     is      => 'rw',
-    isa     => 'Nim::Log',
-    lazy    => 1,
-    default => sub {
-        my $self = shift;
-        Nim::Log->new( log_level => $self->conf->log_level );
-    },
+    isa     => 'ArrayRef[Nim::Page]',
+    default => sub { [] },
 );
 
-no Mouse;
+has log => (
+    is         => 'rw',
+    isa        => 'Nim::Log',
+    lazy_build => 1,
+);
+
+no Any::Moose;
+
+do {
+    my $CONTEXT;
+    sub context {
+        my ($class, $context) = @_;
+        $CONTEXT = $context if $context;
+        $CONTEXT;
+    }
+};
+
+sub run {
+    my ($self) = @_;
+
+    $self->context($self);
+
+    $self->load_config;
+    $self->load_plugins;
+
+    $self->run_hooks;
+}
+
+sub run_hooks {
+    my ($self) = @_;
+
+    $self->run_hook('initialize');
+
+    $self->run_hook('find_entries');
+    for my $entry (@{ $self->entries }) {
+        $self->run_hook( 'entry.filter'      => $entry );
+        $self->run_hook( 'entry.interpolate' => $entry );
+        $self->run_hook( 'entry.render'      => $entry );
+    }
+
+    $self->run_hook('init_pages');
+    for my $page (@{ $self->pages }) {
+        $self->run_hook('page.filer'       => $page );
+        $self->run_hook('page.interpolate' => $page );
+        $self->run_hook('page.render'      => $page );
+    }
+
+    $self->run_hook('finalize');
+}
+
+sub run_hook {
+    my ($self, $name, @args) = @_;
+
+    $self->log->debug('run_hook: %s', $name);
+
+    my @hooks = (
+        @{ $self->hooks->{ 'before_' . $name } || [] },
+        @{ $self->hooks->{$name}               || [] },
+        @{ $self->hooks->{ 'after_' . $name }  || [] }
+    );
+
+    for my $hook (@hooks) {
+        if ($hook->{plugin}->rule->dispatch($hook->{plugin}, $name, @args)) {
+            $hook->{callback}->( $hook->{plugin}, $self, @args );
+        }
+    }
+}
+
+sub run_hook_once {
+    my ($self, $name, @args) = @_;
+
+    for my $hook (@{ $self->hooks->{$name} || [] }) {
+        my $res = $hook->{callback}->( $hook->{plugin}, $self, @args );
+        return $res if defined $res;
+    }
+
+    return;
+}
+
+sub load_config {
+    my ($self) = @_;
+
+    my $config_file = dir(getcwd)->file('.nim');
+    croak 'config file ".nim" is not found on this directory' unless -f $config_file;
+
+    $self->conf( Nim::Config->load($config_file) );
+
+    $self->log->debug("Config file loaded");
+    $self->log->debug('data_dir: %s', $self->conf->data_dir->absolute);
+    $self->log->debug('site_dir: %s', $self->conf->site_dir->absolute);
+    $self->log->debug('templates_dir: %s', $self->conf->templates_dir->absolute);
+}
+
+sub load_plugins {
+    my ($self) = @_;
+
+    for my $conf (@{ $self->conf->plugins }) {
+        $conf->{config}{rule} ||= $conf->{rule};
+        $self->load_plugin( $conf->{module}, $conf->{config} );
+    }
+    $self->load_plugin('Default');
+}
+
+sub load_plugin {
+    my ($self, $module, $conf) = @_;
+
+    $module =~ s/^\+//
+        or $module = "Nim::Plugin::${module}";
+
+    Any::Moose::load_class($module) unless Any::Moose::is_class_loaded($module);
+    my $plugin = $module->new($conf || ());
+    $plugin->register($self);
+}
+
+sub register_hook {
+    my ($self, $plugin, @hooks) = @_;
+
+    while (my ($hook, $callback) = splice @hooks, 0, 2) {
+        push @{ $self->hooks->{ $hook } }, {
+            plugin   => $plugin,
+            callback => $callback,
+        };
+    }
+}
+
+sub _build_log {
+    my ($self) = @_;
+    Nim::Log->new( log_level => $self->conf->log_level );
+}
+
+__PACKAGE__->meta->make_immutable;
+
+__END__
 
 =head1 NAME
 
@@ -58,153 +185,13 @@ to leave the stub unedited.
 
 Blah blah blah.
 
-=head1 METHODS
-
-=head2 new
-
-=head2 run
-
-=cut
-
-sub run {
-    my $self = shift;
-
-    $self->load_config;
-    $self->load_plugins;
-
-    $self->run_hooks;
-}
-
-=head2 run_hooks
-
-
-
-=cut
-
-sub run_hooks {
-    my $self = shift;
-
-    $self->run_hook('initialize');
-    $self->run_hook('find_entries');
-
-    for my $entry (@{ $self->entries }) {
-        $self->run_hook( filter       => $entry );
-        $self->run_hook( interpolate  => $entry );
-        $self->run_hook( render_entry => $entry );
-    }
-
-    $self->run_hook('render_pages');
-    $self->run_hook('finalize');
-}
-
-=head2 run_hook
-
-=cut
-
-sub run_hook {
-    my ($self, $name, @args) = @_;
-
-    $self->logger->debug('run_hook: %s', $name);
-
-    my @hooks = (
-        @{ $self->hooks->{ 'before_' . $name } || [] },
-        @{ $self->hooks->{$name}               || [] },
-        @{ $self->hooks->{ 'after_' . $name }  || [] }
-    );
-
-    for my $hook (@hooks) {
-        $hook->{callback}->( $hook->{plugin}, $self, @args );
-    }
-}
-
-=head2 run_hook_once
-
-=cut
-
-sub run_hook_once {
-    my ($self, $name, @args) = @_;
-
-    for my $hook (@{ $self->hooks->{$name} }) {
-        my $res = $hook->{callback}->( $hook->{plugin}, $self, @args );
-        return $res if $res;
-    }
-
-    return;
-}
-
-=head2 load_config
-
-=cut
-
-sub load_config {
-    my $self = shift;
-
-    my $config_file = dir(getcwd)->file('.nim');
-    croak 'config file ".nim" is not found on this directory' unless -f $config_file;
-
-    $self->conf( Nim::Config->load($config_file) );
-
-    $self->logger->debug('data_dir: %s', $self->conf->data_dir->absolute);
-    $self->logger->debug('output_dir: %s', $self->conf->output_dir->absolute);
-    $self->logger->debug('templates_dir: %s', $self->conf->templates_dir->absolute);
-}
-
-=head2 load_plugins
-
-=cut
-
-sub load_plugins {
-    my $self = shift;
-
-    for my $conf (@{ $self->conf->plugins }) {
-        $self->load_plugin( $conf->{module}, $conf->{config} );
-    }
-
-    # load default plugins
-    $self->load_plugin('EntryLoader') unless $self->hooks->{find_entries};
-    $self->load_plugin('TemplateLoader::Single') unless $self->hooks->{load_template};
-    $self->load_plugin('Template::TT') unless $self->hooks->{interpolate};
-    $self->load_plugin('Render::Entry') unless $self->hooks->{render_entry};
-}
-
-=head2 load_plugin
-
-=cut
-
-sub load_plugin {
-    my ($self, $module, $conf) = @_;
-
-    unless ($module =~ s/^\+//) {
-        $module = "Nim::Plugin::${module}";
-    }
-
-    Mouse::load_class($module) unless Mouse::is_class_loaded($module);
-    my $plugin = $module->new($conf || ());
-    $plugin->register($self);
-}
-
-=head2 register_hook
-
-=cut
-
-sub register_hook {
-    my ($self, $plugin, @hooks) = @_;
-
-    while (my ($hook, $callback) = splice @hooks, 0, 2) {
-        push @{ $self->hooks->{ $hook } }, {
-            plugin   => $plugin,
-            callback => $callback,
-        };
-    }
-}
-
 =head1 AUTHOR
 
 Daisuke Murase <typester@cpan.org>
 
-=head1 COPYRIGHT & LICENSE
+=head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2009 KAYAC Inc. All rights reserved.
+Copyright (c) 2009 by KAYAC Inc.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.
@@ -213,5 +200,3 @@ The full text of the license can be found in the
 LICENSE file included with this module.
 
 =cut
-
-1;

@@ -1,113 +1,77 @@
 package Nim::Entry;
-use utf8;
-use Mouse;
+use Any::Moose;
 
-use Encode;
-use Nim::Types::Path::Class;
+use Nim::Types;
+use DateTime;
 
-has context => (
+has [qw/path filename/] => (
     is       => 'rw',
-    isa      => 'Nim',
-    weak_ref => 1,
-);
-
-has file => (
-    is       => 'rw',
-    isa      => 'Path::Class::File',
+    isa      => 'Str',
     required => 1,
-    coerce   => 1,
 );
 
-has path => (
-    is      => 'rw',
-    isa     => 'Str',
-    lazy    => 1,
-    default => sub {
-        my $self = shift;
-        my $conf = $self->context->conf;
-
-        my $d = $conf->data_dir->stringify;
-        my $p = $self->file->parent;
-        $p =~ s/^$d//;
-        $p ||= '/';
-
-        $p;
-    },
+has time => (
+    is       => 'rw',
+    isa      => 'Int',
+    required => 1,
 );
 
-has fn => (
-    is      => 'rw',
-    isa     => 'Str',
-    lazy    => 1,
-    default => sub {
-        my $self = $_[0];
-        (my $fn = $self->file->basename) =~ s/\.[^.]+$//;
-        $fn;
-    },
+has datetime => (
+    is         => 'rw',
+    isa        => 'DateTime',
+    lazy_build => 1,
 );
 
-has headers => (
-    is      => 'rw',
-    isa     => 'HashRef',
-    lazy    => 1,
-    default => sub { {} },
+has loader => (
+    is       => 'rw',
+    isa      => 'CodeRef',
+    required => 1,
 );
 
-has body => (
-    is      => 'rw',
-    isa     => 'Str',
-    lazy    => 1,
-    default => sub { '' },
+has [qw/title body/] => (
+    is         => 'rw',
+    isa        => 'Str',
+    lazy_build => 1,
 );
 
 has rendered_body => (
-    is      => 'rw',
-    isa     => 'Str',
-    lazy    => 1,
-    default => sub { '' },
+    is  => 'rw',
 );
 
-no Mouse;
+no Any::Moose;
 
-sub BUILD {
-    $_[0]->load_data;           # TODO: lazy load
+sub year {
+    my ($self) = @_;
+    $self->datetime->year;
 }
 
-sub load {
-    my ($class, $file) = @_;
-    $class->new( file => $file );
+sub month {
+    my ($self) = @_;
+    sprintf '%02d', $self->datetime->month;
 }
 
-sub load_data {
-    my $self = shift;
-
-    my $data = $self->file->slurp;
-    my ($meta, $body) = @_;
-    if ($data =~ /^\S+:/) {
-        ($meta, $body) = $data =~ /(.*?)\r?\n\r?\n(.*)/s;
-        for my $line (split /\r?\n/, $meta) {
-            my ($key, $value) = $line =~ /^(\S+):\s*(.*)/;
-            $self->header( $key => $value );
-        }
-    }
-    else {
-        $body = $data;
-    }
-
-    my $charset = $self->header('charset') || 'utf-8';
-    for my $k (keys %{ $self->headers }) {
-        $self->header( $k, decode($charset, $self->header($k)) );
-    }
-    $self->body( decode($charset, $body) );
+sub day {
+    my ($self) = @_;
+    sprintf '%02d', $self->datetime->day;
 }
 
-sub header {
-    my ($self, $key, $value) = @_;
-
-    if ($value) {
-        return $self->headers->{ lc $key } = $value;
-    }
-    $self->headers->{ lc $key };
+sub _build_title {
+    my ($self) = @_;
+    $self->loader->( $self, 'title' );
 }
 
-1;
+sub _build_body {
+    my ($self) = @_;
+    $self->loader->( $self, 'body' );
+}
+
+sub _build_datetime {
+    my ($self) = @_;
+
+    DateTime->from_epoch(
+        epoch     => $self->time,
+        time_zone => Nim->context->conf->time_zone,
+    );
+}
+
+__PACKAGE__->meta->make_immutable;
