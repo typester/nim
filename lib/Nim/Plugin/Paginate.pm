@@ -52,7 +52,11 @@ sub paginate {
             local $@;
             my $r = eval $self->filter;
             die $@ if $@;
-            next unless $r;
+
+            unless ($r) {
+                push @pages, $page;
+                next;
+            }
         }
 
         my $current_page = 1;
