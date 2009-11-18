@@ -3,6 +3,7 @@ use Any::Moose;
 
 with 'Nim::Plugin';
 
+use Encode;
 use Text::Markdown;
 
 has md => (
@@ -25,7 +26,9 @@ sub register {
 
 sub process {
     my ($self, $context, $entry) = @_;
-    $entry->body( $self->markdown( $entry->body ) );
+
+    my $body = $self->markdown( encode_utf8 $entry->body );
+    $entry->body( decode_utf8 $body );
 }
 
 sub _build_md {
