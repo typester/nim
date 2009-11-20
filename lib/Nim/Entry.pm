@@ -3,6 +3,7 @@ use Any::Moose;
 
 use Nim::Types;
 use DateTime;
+use Text::MicroTemplate qw(:all);
 
 has [qw/path filename/] => (
     is       => 'rw',
@@ -72,6 +73,29 @@ sub _build_datetime {
         epoch     => $self->time,
         time_zone => Nim->context->conf->time_zone,
     );
+}
+
+sub process_template {
+    my ($self, $template) = @_;
+
+    my $_mt = Text::MicroTemplate->new( template => $template );
+    my $_code = $_mt->code;
+
+    my $renderer = eval <<"..." or die $@;
+sub {
+    my \$entry = shift;
+    my \$path = encoded_string(\$entry->path),
+    my \$filename = encoded_string(\$entry->filename),
+    my \$year = \$entry->year,
+    my \$month = \$entry->month,
+    my \$day = \$entry->day,
+    my \$meta = \$entry->can('meta') ? \$entry->meta : undef;
+
+    $_code->();
+}
+...
+
+    $renderer->($self);
 }
 
 __PACKAGE__->meta->make_immutable;

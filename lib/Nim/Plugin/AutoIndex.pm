@@ -10,7 +10,7 @@ extends 'Nim::Plugin::Index';
 has path => (
     is      => 'rw',
     isa     => 'Str',
-    default => '{path}',
+    default => '<?= $path ?>',
 );
 
 has filename => (
@@ -46,7 +46,6 @@ sub register {
 sub init {
     my ($self, $context) = @_;
 
-    my $t = URI::Template->new( $self->path );
     my %entries_path;
 
     for my $entry (@{ $context->entries }) {
@@ -57,27 +56,16 @@ sub init {
 
         if ($entry->can('meta') and $self->path =~ /{tag}/) {
             # support tags
+            my %tags;
             for my $tag (@{ $entry->meta->{tags} || [] }) {
-                my $uri = $t->process(
-                    path     => $entry->path || '/',
-                    filename => $entry->filename,
-                    year     => $entry->year,
-                    month    => $entry->month,
-                    day      => $entry->day,
-                    tag      => uri_escape_utf8($tag),
-                );
+                my $uri = $entry->process_template( $self->path );
+                $tags{ $uri } = $entry;
                 push @{ $entries_path{$uri} }, $entry;
             }
+            push @{ $entries_path{$_} }, $tags{$_} for keys %tags;
         }
         else {
-            my $uri = $t->process(
-                path     => $entry->path || '/',
-                filename => $entry->filename,
-                year     => $entry->year,
-                month    => $entry->month,
-                day      => $entry->day,
-            );
-            push @{ $entries_path{$uri} }, $entry;
+            push @{ $entries_path{ $entry->process_template( $self->path ) } }, $entry;
         }
     }
 
