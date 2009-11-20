@@ -14,6 +14,7 @@ requires 'Text::Markdown';
 requires 'List::Util';
 requires 'YAML::Syck';
 requires 'Plack';
+requires 'Text::MicroTemplate::Extended' => '0.06';
 
 test_requires 'Test::More';
 use_test_base;
