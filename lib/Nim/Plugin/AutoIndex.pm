@@ -54,13 +54,12 @@ sub init {
         die $@ if $@;
         next unless $r;
 
-        if ($entry->can('meta') and $self->path =~ /{tag}/) {
+        if ($entry->can('meta') and ref($entry->meta->{tags}) eq 'ARRAY') {
             # support tags
             my %tags;
             for my $tag (@{ $entry->meta->{tags} || [] }) {
-                my $uri = $entry->process_template( $self->path );
+                my $uri = $entry->process_template( $self->path, { tag => $tag });
                 $tags{ $uri } = $entry;
-                push @{ $entries_path{$uri} }, $entry;
             }
             push @{ $entries_path{$_} }, $tags{$_} for keys %tags;
         }

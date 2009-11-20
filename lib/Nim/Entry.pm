@@ -76,10 +76,15 @@ sub _build_datetime {
 }
 
 sub process_template {
-    my ($self, $template) = @_;
+    my ($self, $template, $params) = @_;
 
     my $_mt = Text::MicroTemplate->new( template => $template );
     my $_code = $_mt->code;
+
+    my $_args = '';
+    for my $k (keys %$params) {
+        $_args .= "my \$${k} = \$_[0]->{$k};\n";
+    }
 
     my $renderer = eval <<"..." or die $@;
 sub {
@@ -90,12 +95,13 @@ sub {
     my \$month = \$entry->month,
     my \$day = \$entry->day,
     my \$meta = \$entry->can('meta') ? \$entry->meta : undef;
+    $_args;
 
     $_code->();
 }
 ...
 
-    $renderer->($self);
+    $renderer->($self, $params);
 }
 
 __PACKAGE__->meta->make_immutable;
