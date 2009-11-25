@@ -11,6 +11,7 @@ requires 'DateTime::Format::W3CDTF';
 requires 'DateTime::Format::HTTP';
 requires 'URI::Escape';
 requires 'Text::Markdown';
+requires 'Text::Hatena';
 requires 'List::Util';
 requires 'YAML::Syck';
 requires 'Plack';
