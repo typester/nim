@@ -27,6 +27,13 @@ sub register {
 sub process {
     my ($self, $context, $entry) = @_;
 
+    # meta support
+    if ($entry->can('meta') and my $markup = $entry->meta->{markup}) {
+        return unless lc $markup eq 'markdown';
+    }
+
+    $context->log->debug('apply markdown filter to %s', join '/', $entry->path, $entry->filename);
+
     my $body = $self->markdown( encode_utf8 $entry->body );
     $entry->body( decode_utf8 $body );
 }
