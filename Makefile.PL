@@ -22,6 +22,7 @@ use_test_base;
 author_tests('xt');
 
 auto_include;
+auto_install;
 auto_set_repository;
 
 WriteAll;
