@@ -16,6 +16,7 @@ requires 'List::Util';
 requires 'YAML::Syck';
 requires 'Plack';
 requires 'Text::MicroTemplate::Extended' => '0.06';
+requires 'FindBin::libs';
 
 test_requires 'Test::More';
 use_test_base;
