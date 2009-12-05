@@ -16,9 +16,6 @@ has regex => (
     coerce => 1,
 );
 
-use Carp;
-use Nim::Entry;
-
 no Any::Moose;
 
 sub register {
