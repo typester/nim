@@ -22,6 +22,7 @@ test_requires 'Test::More';
 use_test_base;
 author_tests('xt');
 
+install_script 'bin/nim';
 auto_include;
 auto_install;
 auto_set_repository;
