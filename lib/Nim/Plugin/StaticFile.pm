@@ -12,7 +12,7 @@ coerce 'RegexpRef'
 has regex => (
     is => 'ro',
     isa => 'RegexpRef',
-    default => sub { qr{\.(?:css|js|pdf|jpg|gif|png|ico)} },
+    default => sub { qr{\.(?:css|js|pdf|jpe?g|gif|png|ico)$} },
     coerce => 1,
 );
 
