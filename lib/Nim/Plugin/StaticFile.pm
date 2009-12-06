@@ -45,7 +45,7 @@ sub find {
             my $file = $dir->file($f->basename);
             $context->log->info('copy to: %s', $file);
             $dir->mkpath unless -d $dir;
-            copy $f, $file;
+            copy $f->stringify, $file->stringify;
         }
     ); 
 }
