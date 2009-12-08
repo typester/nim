@@ -36,7 +36,7 @@ sub register {
 
     $context->register_hook(
         $self,
-        'after_entry.interpolate' => \&process,
+        'before_entry.interpolate' => \&process,
     );
 }
 
