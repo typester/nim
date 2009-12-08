@@ -48,6 +48,7 @@ sub render {
     $file->parent->mkpath unless -d $file->parent;
 
     my $fh = $file->openw or croak "Can't write file: $!";
+    binmode($fh, ':utf8');
     print $fh $entry->rendered_body;
     $fh->close;
 }

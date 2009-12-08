@@ -48,6 +48,7 @@ sub render {
     $dir->mkpath unless -d $dir;
 
     my $fh = $file->openw or croak "Can't write file: $!";
+    binmode($fh, ':utf8');
     print $fh $page->rendered;
     $fh->close;
 }
