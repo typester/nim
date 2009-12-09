@@ -47,6 +47,9 @@ sub process {
     $t->parse_content($entry->body);
 
     for my $code ($t->find('code')) {
+        my $child = $code->content_list;
+        next if $child > 1;     # Not only text node, already colored?
+
         my $html = $code->content->[0];
 
         if (my $f = $self->filter) {
