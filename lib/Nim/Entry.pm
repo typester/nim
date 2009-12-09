@@ -39,6 +39,12 @@ has rendered_body => (
     is  => 'rw',
 );
 
+has handled => (
+    is      => 'rw',
+    isa     => 'ArrayRef',
+    default => sub { [] },
+);
+
 no Any::Moose;
 
 sub year {
@@ -102,6 +108,29 @@ sub {
 ...
 
     $renderer->($self, $params);
+}
+
+sub is_handled_by_class {
+    my ($self, $class) = @_;
+
+    for my $c (map { ref } @{ $self->handled }) {
+        return 1 if $class eq $c;
+    }
+    return;
+}
+
+sub is_handled_by_obj {
+    my ($self, $obj) = @_;
+
+    for my $o (@{ $self->handled }) {
+        return 1 if $obj eq $o;
+    }
+    return;
+}
+
+sub mark_handled {
+    my ($self, $obj) = @_;
+    push @{ $self->handled }, $obj;
 }
 
 __PACKAGE__->meta->make_immutable;
