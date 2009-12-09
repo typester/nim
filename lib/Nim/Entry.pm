@@ -83,17 +83,17 @@ sub process_template {
 
     my $_args = '';
     for my $k (keys %$params) {
-        $_args .= "my \$${k} = \$_[0]->{$k};\n";
+        $_args .= "my \$${k} = \$_[0]->{${k}};\n";
     }
 
     my $renderer = eval <<"..." or die $@;
 sub {
     my \$entry = shift;
-    my \$path = encoded_string(\$entry->path),
-    my \$filename = encoded_string(\$entry->filename),
-    my \$year = \$entry->year,
-    my \$month = \$entry->month,
-    my \$day = \$entry->day,
+    my \$path = encoded_string(\$entry->path);
+    my \$filename = encoded_string(\$entry->filename);
+    my \$year = \$entry->year;
+    my \$month = \$entry->month;
+    my \$day = \$entry->day;
     my \$meta = \$entry->can('meta') ? \$entry->meta : undef;
     $_args;
 
