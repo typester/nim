@@ -47,6 +47,8 @@ sub process {
     $t->parse_content($entry->body);
 
     for my $code ($t->find('code')) {
+        next unless $code->parent->tag eq 'pre';
+
         my $child = $code->content_list;
         next if $child > 1;     # Not only text node, already colored?
 
