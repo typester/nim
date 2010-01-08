@@ -32,42 +32,17 @@ sub build(&;$) {
 if ($options{server}) {
     $nim->log->info('Starting build-in server');
 
-    my $handler = sub {
-        sub {
-            my $env  = shift;
-            my @path = grep { $_ } split '/', $env->{PATH_INFO};
-            my $fn   = pop @path || 'index.html';
+    require Plack::App::Directory;
+    my $handler = Plack::App::Directory->new({ root => $nim->conf->site_dir })->to_app;
 
-            my $dir = $nim->conf->site_dir;
-            $dir = $dir->subdir(@path) if @path;
-
-            my $file = $dir->file($fn);
-            $file = $dir->subdir($file->basename)->file('index.html') if -d $file;
-
-            if (-f $file) {
-                require Plack::App::File;
-                my $type = Plack::App::File->mime_type_for($file);
-
-                my $fh = $file->openr or die $!;
-                return [
-                    200,
-                    [ 'Content-Type' => $type, 'Content-Length' => -s $fh ],
-                    $fh
-                ];
-            }
-            else {
-                return [ 404, [ "Content-Type" => "text/plain" ], [ "Not Found" ] ];
-            }
-        };
-    };
-    require Plack::Middleware::AccessLog;
-    $handler = build {
-        Plack::Middleware::AccessLog->wrap( $_[0], logger => sub { print STDERR @_ } );
-    } $handler;
-
+#    require Plack::Middleware::AccessLog;
+#    $handler = build {
+#        Plack::Middleware::AccessLog->wrap( $_[0], logger => sub { print STDERR @_ } );
+#    } $handler;
+#
     require Plack::Loader;
     $options{port} ||= 4423;
     $options{host} ||= '0.0.0.0';
 
-    Plack::Loader->auto(%options)->run($handler->());
+    Plack::Loader->auto(%options)->run($handler);
 }
