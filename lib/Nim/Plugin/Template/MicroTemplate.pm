@@ -87,6 +87,7 @@ sub find_template {
         my $t = $path->file($filename);
         if (-f $t) {
             $t =~ s/^$dir//;
+            $t =~ s{^/*}{};
 
             return $t;
         }
