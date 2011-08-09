@@ -1,6 +1,8 @@
 package Nim::Plugin::TagIndex;
 use Any::Moose;
 
+use URI::Template;
+
 with 'Nim::Plugin';
 
 extends 'Nim::Plugin::Index';
